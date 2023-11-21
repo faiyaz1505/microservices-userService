@@ -1,5 +1,8 @@
 package com.lcwd.user.service.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lcwd.user.service.entities.Hotel;
 import com.lcwd.user.service.entities.Ratings;
 import com.lcwd.user.service.entities.User;
@@ -61,14 +64,31 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User getUser(String userId) {
-        User user=userRepository.findById(userId).orElseThrow(()->new ResourceNotFoundException("user with given id is not found on ser! : "+userId));
-        ArrayList<Ratings> forObject=restTemplate.getForObject("http://localhost:8083/ratings/users/"+user.getUserId(), ArrayList.class);
+        User user=userRepository.findById(userId).orElseThrow(()->new ResourceNotFoundException("user with given id is not found on server ! : "+userId));
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode forObject=restTemplate.getForObject("http://localhost:8083/ratings/users/"+user.getUserId(), JsonNode.class);
+        List<Ratings>  result= mapper.convertValue(forObject, new TypeReference<List<Ratings>>() {});
         logger.info("{}",forObject);
 
+        List<Ratings> ratingsList=new ArrayList<>();
+        for (Ratings rating:result) {
+            Ratings ratings=new Ratings();
+            ratings.setRatingId(rating.getRatingId());
+            ratings.setUserId(rating.getUserId());
+            ratings.setRating(rating.getRating());
+            ratings.setHotelId(rating.getHotelId());
+            ratings.setFeedback(rating.getFeedback());
+            Hotel hotelObject=restTemplate.getForObject("http://localhost:8082/hotels/"+rating.getHotelId(), Hotel.class);
+            ratings.setHotel(hotelObject);
+            ratingsList.add(ratings);
+
+        }
 
 
 
-        user.setRatings(forObject);
+
+        user.setRatings(ratingsList);
         return user;
     }
 }
